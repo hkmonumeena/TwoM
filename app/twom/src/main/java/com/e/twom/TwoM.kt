@@ -2,6 +2,7 @@ package com.e.twom
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.BufferedWriter
@@ -58,7 +59,10 @@ object TwoM {
                 val data = httpURlConnection.inputStream.bufferedReader().readText()
                 httpURlConnection.disconnect()
                 if (httpURlConnection.responseCode == 200) {
-                    myCallback.invoke(data)
+                    GlobalScope.launch (Dispatchers.Main){
+                        myCallback.invoke(data)
+                    }
+
                 }
                 else {
 
