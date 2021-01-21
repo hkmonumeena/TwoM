@@ -1,0 +1,3 @@
+include ':app:twom'
+include ':app'
+rootProject.name = "TwoM"
