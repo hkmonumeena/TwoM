@@ -12,7 +12,7 @@ import java.net.*
 import javax.net.ssl.HttpsURLConnection
 
 
-object TwoM {
+object TwoMonu {
 
     private var urlmain: String? = null
     private var bodyparams = JSONObject()
@@ -82,7 +82,7 @@ object TwoM {
                         httpURlConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                         httpURlConnection.readTimeout = 60000
 
-                        httpURlConnection.connectTimeout = 60000
+                            httpURlConnection.connectTimeout = 60000
 
 
 
@@ -103,7 +103,7 @@ object TwoM {
                         } catch ( exception :IOException) {
                             myCallback.invoke(null,exception.toString())
 
-                        }
+                    }
 
 
 
@@ -176,9 +176,9 @@ object TwoM {
                 val data = httpURlConnection.inputStream.bufferedReader().readText()
                 httpURlConnection.disconnect()
                 if (httpURlConnection.responseCode == 200) {
-                    GlobalScope.launch(Dispatchers.Main) {
-                        myCallback.invoke(data, null)
-                    }
+                   GlobalScope.launch(Dispatchers.Main) {
+                       myCallback.invoke(data, null)
+                   }
                 }
 
                 else {
@@ -210,6 +210,10 @@ object TwoM {
         }
         return result.toString()
     }
+
+
+
+
 
 
 }
