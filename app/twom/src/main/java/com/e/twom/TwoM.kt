@@ -81,15 +81,11 @@ object TwoM {
                         httpURlConnection.setRequestProperty("Cache-Control", "no-cache");
                         httpURlConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                         httpURlConnection.readTimeout = 60000
-
-                        httpURlConnection.connectTimeout = 60000
-
-
+                        httpURlConnection.connectTimeout = 100
 
                         try {
                             httpURlConnection.doInput = true
                             httpURlConnection.doOutput = true
-
                             val os: OutputStream = httpURlConnection.outputStream
                             val writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
                             writer.write(encodeParams(bodyparams))
@@ -191,10 +187,6 @@ object TwoM {
 
         }
     }
-
-
-
-
 
     private fun encodeParams(params: JSONObject): String? {
         val result = StringBuilder()

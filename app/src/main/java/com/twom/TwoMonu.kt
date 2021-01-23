@@ -7,7 +7,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.io.*
+import java.io.BufferedWriter
+import java.io.IOException
+import java.io.OutputStream
+import java.io.OutputStreamWriter
 import java.net.*
 import javax.net.ssl.HttpsURLConnection
 
@@ -15,8 +18,12 @@ import javax.net.ssl.HttpsURLConnection
 object TwoMonu {
 
     private var urlmain: String? = null
+    private var setContentType: String? = "application/x-www-form-urlencoded"
+    val application_x_www_form_urlencoded = "application/x-www-form-urlencoded"
+    val application_json_utf_8 = "application/json; utf-8"
     private var bodyparams = JSONObject()
-    private  var headerMap = HashMap<String, String>()
+    private var headerMap = HashMap<String, String>()
+
     fun bodyParameterList(hashMap: List<Pair<String, String>>): JSONObject {
         for ((key, value) in hashMap) {
             Log.e("gfdgfgffgr", "bodyParameterList: $key--$value")
@@ -30,170 +37,163 @@ object TwoMonu {
         bodyparams.put(key, value)
         return bodyparams!!
     }
+
     fun headerParameter(key: String, value: String) {
         headerMap[key] = value
     }
-    fun post(url: String): String {
-        urlmain = url
-        return urlmain!!
+
+    fun setContentType(Content_Type: String = "application/x-www-form-urlencoded") {
+        setContentType = Content_Type
     }
-    fun get(url: String): String {
+
+    fun url(url: String): String {
         urlmain = url
         return urlmain!!
     }
 
-    class PostExecute(context: Context) {
+    object PostExecute {
         private val url: String = urlmain!!
-        private val context = context
-        private fun isNetworkAvailable(): Boolean? {
-            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE)
-            return if (connectivityManager is ConnectivityManager) {
-                val networkInfo = connectivityManager.activeNetworkInfo
-                networkInfo?.isConnected
-            } else false
-
-        }
-        @Throws(IOException::class, URISyntaxException::class)
-        private fun connect(uri: String) {
-            try {
-                val url = URL(uri)
-                val connection = url.openConnection() as HttpsURLConnection
-
-
-            } catch (exception: ConnectException) {
-                // Output expected ConnectException.
-                //  Logging.log(exception)
-            } catch (throwable: Throwable) {
-                // Output unexpected Throwables.
-                //  Logging.log(throwable, false)
-            }
-        }
-
         fun get(myCallback: (result: String?, error: String?) -> Unit) {
+            var httpURlConnection: HttpURLConnection? = null
+            var writer: BufferedWriter? = null
+            var os: OutputStream? = null
+            GlobalScope.launch(Dispatchers.IO) {
+                try {
+                    httpURlConnection = URL(url).openConnection() as HttpURLConnection
+                    httpURlConnection?.requestMethod = "POST"
+                    httpURlConnection?.setRequestProperty("Connection", "Keep-Alive");
+                    httpURlConnection?.setRequestProperty("Cache-Control", "no-cache");
+                    httpURlConnection?.setRequestProperty("Content-Type", setContentType)
+                    for ((key, value) in headerMap.entries) {
+                        httpURlConnection?.setRequestProperty(key, value)
+                    }
+                    httpURlConnection?.readTimeout = 60000
+                    httpURlConnection?.connectTimeout = 60000
+                    httpURlConnection?.doInput = true
+                    httpURlConnection?.doOutput = true
+                    os = httpURlConnection?.outputStream
+                    writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
+                    writer?.write(encodeParams(bodyparams))
+                    writer?.flush()
+                    writer?.close()
+                    os?.close()
+                    httpURlConnection?.connect()
+                    val data = httpURlConnection?.inputStream?.bufferedReader()?.readText()
+                    GlobalScope.launch(Dispatchers.Main) {
+                        if (httpURlConnection?.responseCode == 200) {
+                            myCallback.invoke(data, null)
+                            httpURlConnection?.disconnect()
+                        }
+                    }
 
-            try {
+                } catch (se: SocketTimeoutException) {
+                    GlobalScope.launch(Dispatchers.Main) {
+                        myCallback.invoke(null, "Twom Error SocketTimeoutException -${se}")
+                    }
 
-                var httpURlConnection = URL(url).openConnection() as HttpURLConnection
-                if (isNetworkAvailable() == true) {
-                    GlobalScope.launch(Dispatchers.IO) {
-                        httpURlConnection.requestMethod = "POST"
-                        httpURlConnection.setRequestProperty("Connection", "Keep-Alive");
-                        httpURlConnection.setRequestProperty("Cache-Control", "no-cache");
-                        httpURlConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-                        httpURlConnection.readTimeout = 60000
+                } catch (e: IOException) {
+                    GlobalScope.launch(Dispatchers.Main) {
+                        myCallback.invoke(null, "Twom Error IOException -${e}")
+                    }
 
-                            httpURlConnection.connectTimeout = 60000
+                } catch (e: java.lang.Exception) {
+                    GlobalScope.launch(Dispatchers.Main) {
+                        myCallback.invoke(null, "Twom Error Exception -${e}")
+                    }
 
+                } finally {
+                    if (httpURlConnection != null) {
+                        httpURlConnection?.disconnect();
+                    }
 
-
+                    if (writer != null) {
                         try {
-                            httpURlConnection.doInput = true
-                            httpURlConnection.doOutput = true
-
-                            val os: OutputStream = httpURlConnection.outputStream
-                            val writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
-                            writer.write(encodeParams(bodyparams))
-                            writer.flush()
-                            writer.close()
-                            os.close()
-
-                        } catch (d :SocketTimeoutException) {
-                            myCallback.invoke(null,d.toString())
-
-                        } catch ( exception :IOException) {
-                            myCallback.invoke(null,exception.toString())
-
-                    }
-
-
-
-                        for ((key, value) in headerMap!!.entries) {
-                            httpURlConnection.setRequestProperty(key, value)
+                            writer?.close()
+                        } catch (ex: IOException) {
                         }
-
-                        httpURlConnection.connect()
-                        val data = httpURlConnection.inputStream.bufferedReader().readText()
-                        httpURlConnection.disconnect()
-
-                        GlobalScope.launch(Dispatchers.Main) {
-                            if (httpURlConnection.responseCode == 200) {
-                                myCallback.invoke(data, null)
-
-                            } else {
-                                //  throw IOException("Server returned non-OK status: ${httpURlConnection.responseCode}")
-                                myCallback.invoke(null, "Error to connect with this url check all the fields -  ${httpURlConnection.responseCode}")
-
-                            }
-
-                        }
-                    }
-
-                } else {
-                    try {
-                        myCallback.invoke(null, "Server returned non-OK status ${httpURlConnection.responseCode}: Not Internet")
-                    } catch (e: Exception) {
-                        myCallback.invoke(null, "${e}: Not Internet")
                     }
 
                 }
 
-
-            } catch (exception: ConnectException) {
-                // Output expected ConnectException.
-                myCallback.invoke(null, exception.toString())
-            } catch (throwable: Throwable) {
-                // Output unexpected Throwables.
-                //  Logging.log(throwable, false)
-                myCallback.invoke(null, throwable.toString())
             }
-
 
         }
 
 
-    }    class GetExecute() {
+    }
+
+    object GetExecute {
         val url: String = urlmain!!
 
         fun get(myCallback: (result: String?, error: String?) -> Unit) {
+            var httpURlConnection: HttpURLConnection? = null
+            var writer: BufferedWriter? = null
+            var os: OutputStream? = null
             GlobalScope.launch(Dispatchers.IO) {
-                val httpURlConnection = URL(url).openConnection() as HttpURLConnection
-                httpURlConnection.requestMethod = "GET"
-                httpURlConnection.readTimeout = 60000
-                httpURlConnection.connectTimeout = 60000
-                httpURlConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-                for ((key, value) in headerMap!!.entries) {
-                    httpURlConnection.setRequestProperty(key, value)
-                }
-                httpURlConnection.doInput = true
-                httpURlConnection.doOutput = true
-                val os: OutputStream = httpURlConnection.outputStream
-                val writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
-                writer.write(encodeParams(bodyparams))
-                writer.flush()
-                writer.close()
-                os.close()
-                httpURlConnection.connect()
-                val data = httpURlConnection.inputStream.bufferedReader().readText()
-                httpURlConnection.disconnect()
-                if (httpURlConnection.responseCode == 200) {
-                   GlobalScope.launch(Dispatchers.Main) {
-                       myCallback.invoke(data, null)
-                   }
-                }
-
-                else {
-                    GlobalScope.launch(Dispatchers.Main) {
-                        myCallback.invoke(null, "Error to connect with this url check all the fields")
+                try {
+                    httpURlConnection = URL(url).openConnection() as HttpURLConnection
+                    httpURlConnection?.requestMethod = "GET"
+                    httpURlConnection?.setRequestProperty("Connection", "Keep-Alive");
+                    httpURlConnection?.setRequestProperty("Cache-Control", "no-cache");
+                    httpURlConnection?.setRequestProperty("Content-Type", setContentType)
+                    // httpURlConnection?.setRequestProperty("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJvc2FtYW0uY29tIiwidWlkIjoyNDQsInR5cGUiOiJjbGllbnQiLCJpYXQiOjE2MTEzODI2MzAsImV4cCI6MTY0MjQ4NjYzMH0.h5J2CMRo9MvGCW2ymxqHjxhz7na3AqDNu1HvHRjd570")
+                    for ((key, value) in headerMap.entries) {
+                        httpURlConnection?.setRequestProperty(key, value)
                     }
+                    httpURlConnection?.readTimeout = 60000
+                    httpURlConnection?.connectTimeout = 60000
+                    //     httpURlConnection?.doInput = false
+                    httpURlConnection?.doOutput = false
+                    /*  os = httpURlConnection?.outputStream
+                            writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
+                            writer?.write(encodeParams(bodyparams))
+                            writer?.flush()
+                            writer?.close()
+                            os?.close()*/
+                    httpURlConnection?.connect()
+                    val data = httpURlConnection?.inputStream?.bufferedReader()?.readText()
+
+                    GlobalScope.launch(Dispatchers.Main) {
+
+                        if (httpURlConnection?.responseCode == 200) {
+                            myCallback.invoke(data, null)
+                            httpURlConnection?.disconnect()
+                        }
+                    }
+
+                } catch (se: SocketTimeoutException) {
+                    GlobalScope.launch(Dispatchers.Main) {
+                        myCallback.invoke(null, "Twom Error SocketTimeoutException -${se}")
+                    }
+
+                } catch (e: IOException) {
+                    GlobalScope.launch(Dispatchers.Main) {
+                        myCallback.invoke(null, "Twom Error IOException -${e}")
+                    }
+
+                } catch (e: java.lang.Exception) {
+                    GlobalScope.launch(Dispatchers.Main) {
+                        myCallback.invoke(null, "Twom Error Exception -${e}")
+                    }
+
+                } finally {
+                    if (httpURlConnection != null) {
+                        httpURlConnection?.disconnect();
+                    }
+
+                    if (writer != null) {
+                        try {
+                            writer?.close()
+                        } catch (ex: IOException) {
+                        }
+                    }
+
                 }
 
             }
 
         }
     }
-
-
-
 
 
     private fun encodeParams(params: JSONObject): String? {
@@ -210,10 +210,6 @@ object TwoMonu {
         }
         return result.toString()
     }
-
-
-
-
 
 
 }
