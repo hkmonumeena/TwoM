@@ -80,7 +80,7 @@ object TwoM {
                     httpURlConnection?.setRequestProperty("Connection", "Keep-Alive");
                     httpURlConnection?.setRequestProperty("Cache-Control", "no-cache");
                     httpURlConnection?.setRequestProperty("Content-Type", setContentType)
-                //    httpURlConnection?.setRequestProperty("Accept", "application/json");
+                    httpURlConnection?.setRequestProperty("Accept", "*/*");
                     for ((key, value) in headerMap.entries) {
                         httpURlConnection?.setRequestProperty(key, value)
                     }
@@ -206,6 +206,8 @@ object TwoM {
                     httpURlConnection?.setRequestProperty("Connection", "Keep-Alive");
                     httpURlConnection?.setRequestProperty("Cache-Control", "no-cache");
                     httpURlConnection?.setRequestProperty("Content-Type", setContentType)
+                    httpURlConnection?.setRequestProperty("Accept", "*/*");
+
                     // httpURlConnection?.setRequestProperty("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJvc2FtYW0uY29tIiwidWlkIjoyNDQsInR5cGUiOiJjbGllbnQiLCJpYXQiOjE2MTEzODI2MzAsImV4cCI6MTY0MjQ4NjYzMH0.h5J2CMRo9MvGCW2ymxqHjxhz7na3AqDNu1HvHRjd570")
                     for ((key, value) in headerMap.entries) {
                         httpURlConnection?.setRequestProperty(key, value)
