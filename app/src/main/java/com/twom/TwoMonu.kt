@@ -11,6 +11,8 @@ import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.URLEncoder
+import java.util.*
+import kotlin.collections.HashMap
 
 
 object TwoMonu {
@@ -18,13 +20,17 @@ object TwoMonu {
     private var urlmain: String? = null
     private var encodeAuth: String? = null
     private var checkBodytype: String? = null
+    private var Mainfilepath: String? = null
+    private var Mainfilefield: String? = null
     private var setContentType: String? = "application/x-www-form-urlencoded"
     val application_x_www_form_urlencoded = "application/x-www-form-urlencoded"
-    val Authorization ="Authorization"
+    val Authorization = "Authorization"
     val application_json_utf_8 = "application/json"
     private var bodyparams = JSONObject()
     private var jsonBody = JSONObject()
     private var headerMap = HashMap<String, String>()
+    private var multiParamMap = HashMap<String, String>()
+
 
     fun bodyParameterList(hashMap: List<Pair<String, String>>): JSONObject {
         for ((key, value) in hashMap) {
@@ -33,24 +39,27 @@ object TwoMonu {
 
         return bodyparams!!
     }
+
     fun bodyParameter(key: String, value: String): JSONObject {
-        checkBodytype="bodyParameter"
+        checkBodytype = "bodyParameter"
         bodyparams.put(key, value)
         return bodyparams!!
     }
 
     fun jsonBody(jsonObject: JSONObject): JSONObject {
         jsonBody = jsonObject
-        checkBodytype="jsonBody"
+        checkBodytype = "jsonBody"
         return jsonObject
     }
+
     fun headerParameter(key: String, value: String) {
         headerMap[key] = value
     }
-    fun authenticationHeader(username: String, password: String){
+
+    fun authenticationHeader(username: String, password: String) {
         val auth: String = "$username:$password"
         val data = auth.toByteArray()
-         encodeAuth = "Basic " + Base64.encodeToString(data, Base64.DEFAULT)
+        encodeAuth = "Basic " + Base64.encodeToString(data, Base64.DEFAULT)
         Log.e("Dsdss", "authenticationHeader: " + encodeAuth)
         headerMap[Authorization] = encodeAuth!!
     }
@@ -64,12 +73,35 @@ object TwoMonu {
         return urlmain!!
     }
 
+    fun upload(
+            filepath: String,
+            filefield: String,
+    ) {
+        Mainfilepath = filepath
+        Mainfilefield = filefield
+    }
+
+    fun multipartParams(parmas: Map<String, String?>){
+
+    }
+
     object PostExecute {
         private val url: String = urlmain!!
         fun get(myCallback: (result: String?, error: String?) -> Unit) {
             var httpURlConnection: HttpURLConnection? = null
             var writer: BufferedWriter? = null
             var os: OutputStream? = null
+            val TIME_OUT = 8 * 1000 //timeout time
+
+            val CHARSET = "utf-8" //encoding format
+
+            val PREFIX = "--" //prefix
+
+            val BOUNDARY = UUID.randomUUID().toString() //Boundary identifier Randomly generated
+
+            val CONTENT_TYPE = "multipart/form-data" //content type
+
+            val LINE_END = "\r\n" //newline
             GlobalScope.launch(Dispatchers.IO) {
                 try {
                     httpURlConnection = URL(url).openConnection() as HttpURLConnection
@@ -77,7 +109,7 @@ object TwoMonu {
                     httpURlConnection?.setRequestProperty("Connection", "Keep-Alive");
                     httpURlConnection?.setRequestProperty("Cache-Control", "no-cache");
                     httpURlConnection?.setRequestProperty("Content-Type", setContentType)
-                    httpURlConnection?.setRequestProperty("Accept", "application/json");
+                    httpURlConnection?.setRequestProperty("Accept", "*/*");
                     for ((key, value) in headerMap.entries) {
                         httpURlConnection?.setRequestProperty(key, value)
                     }
@@ -86,20 +118,19 @@ object TwoMonu {
                     httpURlConnection?.doInput = true
                     httpURlConnection?.doOutput = true
                     os = httpURlConnection?.outputStream
-                    if (checkBodytype=="bodyParameter"){
+                    if (checkBodytype == "bodyParameter") {
                         writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
                         writer?.write(encodeParams(bodyparams))
                         writer?.flush()
                         writer?.close()
                         os?.close()
-                    } else if (checkBodytype=="jsonBody"){
+                    } else if (checkBodytype == "jsonBody") {
                         writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
                         writer?.write(jsonBody.toString())
                         writer?.flush()
                         writer?.close()
                         os?.close()
                     }
-
 
 
                     httpURlConnection?.connect()
@@ -125,8 +156,8 @@ object TwoMonu {
                     `in`.close()
                     GlobalScope.launch(Dispatchers.Main) {
                         myCallback.invoke(
-                            null,
-                            "${stringBuilder}\n${httpURlConnection?.responseCode} \n${httpURlConnection?.responseMessage}\n${se}"
+                                null,
+                                "${stringBuilder}\n${httpURlConnection?.responseCode} \n${httpURlConnection?.responseMessage}\n${se}"
                         )
                     }
 
@@ -144,8 +175,8 @@ object TwoMonu {
                     `in`.close()
                     GlobalScope.launch(Dispatchers.Main) {
                         myCallback.invoke(
-                            null,
-                            "${stringBuilder}\n${httpURlConnection?.responseCode} \n${httpURlConnection?.responseMessage}\n Error IOException -${e}"
+                                null,
+                                "${stringBuilder}\n${httpURlConnection?.responseCode} \n${httpURlConnection?.responseMessage}\n Error IOException -${e}"
                         )
                     }
 
@@ -163,8 +194,8 @@ object TwoMonu {
                     `in`.close()
                     GlobalScope.launch(Dispatchers.Main) {
                         myCallback.invoke(
-                            null,
-                            "$stringBuilder\n${httpURlConnection?.responseCode} \n${httpURlConnection?.responseMessage} \n-${e}"
+                                null,
+                                "$stringBuilder\n${httpURlConnection?.responseCode} \n${httpURlConnection?.responseMessage} \n-${e}"
                         )
                     }
 
@@ -188,6 +219,7 @@ object TwoMonu {
 
 
     }
+
     object GetExecute {
         val url: String = urlmain!!
 
@@ -262,28 +294,16 @@ object TwoMonu {
     }
 
 
-    private fun encodeParams(params: JSONObject): String? {
-        val result = StringBuilder()
-        var first = true
-        val itr = params.keys()
-        while (itr.hasNext()) {
-            val key = itr.next()
-            val value = params[key]
-            if (first) first = false else result.append("&")
-            result.append(URLEncoder.encode(key, "UTF-8"))
-            result.append("=")
-            result.append(URLEncoder.encode(value.toString(), "UTF-8"))
-        }
-        return result.toString()
-    }
 
-   // @Throws(CustomException::class)
+
+    // @Throws(CustomException::class)
     fun multipartRequest(
-        urlTo: String?,
-        parmas: Map<String, String?>,
-        filepath: String,
-        filefield: String,
-        fileMimeType: String
+            urlTo: String?,
+            parmas: Map<String, String?>,
+            filepath: String,
+            filefield: String,
+            myfile:File,
+            fileMimeType: String
     ): String? {
         var connection: HttpURLConnection? = null
         var outputStream: DataOutputStream? = null
@@ -295,7 +315,7 @@ object TwoMonu {
         var bytesRead: Int
         var bytesAvailable: Int
         var bufferSize: Int
-        val buffer: ByteArray
+        var buffer: ByteArray
         val maxBufferSize = 1 * 1024 * 1024
         val q = filepath.split("/".toRegex()).toTypedArray()
         val idx = q.size - 1
@@ -313,22 +333,25 @@ object TwoMonu {
             connection.setRequestProperty("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJvc2FtYW0uY29tIiwidWlkIjo0NSwidHlwZSI6Im1lcmNoYW50IiwiaWF0IjoxNjA5MjY3ODg0LCJleHAiOjE2NDAzNzE4ODR9.ndCh2dINiROKo0tcQQjSSLO-2V50LZhIH2J3Ac-FGhE")
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
             outputStream = DataOutputStream(connection.outputStream)
-            outputStream.writeBytes(twoHyphens + boundary + lineEnd)
-            outputStream.writeBytes("Content-Disposition: form-data; name=\"" + filefield + "\"; filename=\"" + q[idx] + "\"" + lineEnd)
-            outputStream.writeBytes("Content-Type: $fileMimeType$lineEnd")
-            outputStream.writeBytes("Content-Transfer-Encoding: binary$lineEnd")
-            outputStream.writeBytes(lineEnd)
-            bytesAvailable = fileInputStream.available()
-            bufferSize = Math.min(bytesAvailable, maxBufferSize)
-            buffer = ByteArray(bufferSize)
-            bytesRead = fileInputStream.read(buffer, 0, bufferSize)
-            while (bytesRead > 0) {
-                outputStream.write(buffer, 0, bufferSize)
+            for (i in 0 until 3){
+
+                outputStream.writeBytes(twoHyphens + boundary + lineEnd)
+                outputStream.writeBytes("Content-Disposition: form-data; name=\"" + filefield + "\"; filename=\"" + q[idx] + "\"" + lineEnd)
+                outputStream.writeBytes("Content-Type: $fileMimeType$lineEnd")
+                outputStream.writeBytes("Content-Transfer-Encoding: binary$lineEnd")
+                outputStream.writeBytes(lineEnd)
                 bytesAvailable = fileInputStream.available()
-                bufferSize = Math.min(bytesAvailable, maxBufferSize)
+                bufferSize = bytesAvailable.coerceAtMost(maxBufferSize)
+                buffer = ByteArray(bufferSize)
                 bytesRead = fileInputStream.read(buffer, 0, bufferSize)
+                while (bytesRead > 0) {
+                    outputStream.write(buffer, 0, bufferSize)
+                    bytesAvailable = fileInputStream.available()
+                    bufferSize = Math.min(bytesAvailable, maxBufferSize)
+                    bytesRead = fileInputStream.read(buffer, 0, bufferSize)
+                }
+                outputStream.writeBytes(lineEnd)
             }
-            outputStream.writeBytes(lineEnd)
 
             // Upload POST Data
             val keys = parmas.keys.iterator()
@@ -344,7 +367,7 @@ object TwoMonu {
             }
             outputStream.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd)
             if (200 != connection.responseCode) {
-               // throw CustomException("Failed to upload code:" + connection.responseCode + " " + connection.responseMessage)
+                // throw CustomException("Failed to upload code:" + connection.responseCode + " " + connection.responseMessage)
             }
             inputStream = connection.inputStream
             result = convertStreamToString(inputStream)
@@ -353,10 +376,40 @@ object TwoMonu {
             outputStream.flush()
             outputStream.close()
             result
-        } catch ( e:Exception) {
- throw (e)
+        } catch (e: Exception) {
+
+            val `in` = InputStreamReader(connection?.errorStream)
+            var stringBuilder = StringBuilder()
+            val bufferedReader = BufferedReader(`in`)
+            if (bufferedReader != null) {
+                var cp: Int
+                while (bufferedReader.read().also { cp = it } != -1) {
+                    stringBuilder.append(cp.toChar())
+                }
+                bufferedReader.close()
+            }
+            `in`.close()
+
+            Log.e("dsdsd", "multipartRequest: " + stringBuilder)
+
+            throw (e)
 
         }
+    }
+
+    private fun encodeParams(params: JSONObject): String? {
+        val result = StringBuilder()
+        var first = true
+        val itr = params.keys()
+        while (itr.hasNext()) {
+            val key = itr.next()
+            val value = params[key]
+            if (first) first = false else result.append("&")
+            result.append(URLEncoder.encode(key, "UTF-8"))
+            result.append("=")
+            result.append(URLEncoder.encode(value.toString(), "UTF-8"))
+        }
+        return result.toString()
     }
 
     private fun convertStreamToString(`is`: InputStream?): String? {
