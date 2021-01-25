@@ -80,7 +80,7 @@ object TwoM {
                     httpURlConnection?.setRequestProperty("Connection", "Keep-Alive");
                     httpURlConnection?.setRequestProperty("Cache-Control", "no-cache");
                     httpURlConnection?.setRequestProperty("Content-Type", setContentType)
-                    httpURlConnection?.setRequestProperty("Accept", "application/json");
+                //    httpURlConnection?.setRequestProperty("Accept", "application/json");
                     for ((key, value) in headerMap.entries) {
                         httpURlConnection?.setRequestProperty(key, value)
                     }
