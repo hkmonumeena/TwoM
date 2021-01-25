@@ -25,6 +25,8 @@ class MainActivity : AppCompatActivity() {
         TwoMonu.url("https://maestrosinfotech.com/rushabhbusinesscentre/api/process.php?action=show_product")
         TwoMonu.setContentType(TwoMonu.application_x_www_form_urlencoded)
         TwoMonu.bodyParameterList(list)
+
+
         TwoMonu.PostExecute.get { result, error ->
             val test = findViewById<TextView>(R.id.test)
             test?.text = "d" + result
