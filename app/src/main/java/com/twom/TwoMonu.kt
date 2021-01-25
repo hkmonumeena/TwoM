@@ -1,45 +1,58 @@
 package com.twom
 
-import android.content.Context
-import android.net.ConnectivityManager
+import android.util.Base64
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.io.BufferedWriter
-import java.io.IOException
-import java.io.OutputStream
-import java.io.OutputStreamWriter
-import java.net.*
-import javax.net.ssl.HttpsURLConnection
+import java.io.*
+import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
+import java.net.URL
+import java.net.URLEncoder
 
 
 object TwoMonu {
 
     private var urlmain: String? = null
+    private var encodeAuth: String? = null
+    private var checkBodytype: String? = null
     private var setContentType: String? = "application/x-www-form-urlencoded"
     val application_x_www_form_urlencoded = "application/x-www-form-urlencoded"
-    val application_json_utf_8 = "application/json; utf-8"
+    val Authorization ="Authorization"
+    val application_json_utf_8 = "application/json"
     private var bodyparams = JSONObject()
+    private var jsonBody = JSONObject()
     private var headerMap = HashMap<String, String>()
 
     fun bodyParameterList(hashMap: List<Pair<String, String>>): JSONObject {
         for ((key, value) in hashMap) {
-            Log.e("gfdgfgffgr", "bodyParameterList: $key--$value")
             bodyparams.put(key, value)
         }
 
         return bodyparams!!
     }
-
     fun bodyParameter(key: String, value: String): JSONObject {
+        checkBodytype="bodyParameter"
         bodyparams.put(key, value)
         return bodyparams!!
     }
 
+    fun jsonBody(jsonObject: JSONObject): JSONObject {
+        jsonBody = jsonObject
+        checkBodytype="jsonBody"
+        return jsonObject
+    }
     fun headerParameter(key: String, value: String) {
         headerMap[key] = value
+    }
+    fun authenticationHeader(username: String, password: String){
+        val auth: String = "$username:$password"
+        val data = auth.toByteArray()
+         encodeAuth = "Basic " + Base64.encodeToString(data, Base64.DEFAULT)
+        Log.e("Dsdss", "authenticationHeader: " + encodeAuth)
+        headerMap[Authorization] = encodeAuth!!
     }
 
     fun setContentType(Content_Type: String = "application/x-www-form-urlencoded") {
@@ -64,6 +77,7 @@ object TwoMonu {
                     httpURlConnection?.setRequestProperty("Connection", "Keep-Alive");
                     httpURlConnection?.setRequestProperty("Cache-Control", "no-cache");
                     httpURlConnection?.setRequestProperty("Content-Type", setContentType)
+                    httpURlConnection?.setRequestProperty("Accept", "application/json");
                     for ((key, value) in headerMap.entries) {
                         httpURlConnection?.setRequestProperty(key, value)
                     }
@@ -72,11 +86,22 @@ object TwoMonu {
                     httpURlConnection?.doInput = true
                     httpURlConnection?.doOutput = true
                     os = httpURlConnection?.outputStream
-                    writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
-                    writer?.write(encodeParams(bodyparams))
-                    writer?.flush()
-                    writer?.close()
-                    os?.close()
+                    if (checkBodytype=="bodyParameter"){
+                        writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
+                        writer?.write(encodeParams(bodyparams))
+                        writer?.flush()
+                        writer?.close()
+                        os?.close()
+                    } else if (checkBodytype=="jsonBody"){
+                        writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
+                        writer?.write(jsonBody.toString())
+                        writer?.flush()
+                        writer?.close()
+                        os?.close()
+                    }
+
+
+
                     httpURlConnection?.connect()
                     val data = httpURlConnection?.inputStream?.bufferedReader()?.readText()
                     GlobalScope.launch(Dispatchers.Main) {
@@ -87,18 +112,60 @@ object TwoMonu {
                     }
 
                 } catch (se: SocketTimeoutException) {
+                    val `in` = InputStreamReader(httpURlConnection?.errorStream)
+                    var stringBuilder = StringBuilder()
+                    val bufferedReader = BufferedReader(`in`)
+                    if (bufferedReader != null) {
+                        var cp: Int
+                        while (bufferedReader.read().also { cp = it } != -1) {
+                            stringBuilder.append(cp.toChar())
+                        }
+                        bufferedReader.close()
+                    }
+                    `in`.close()
                     GlobalScope.launch(Dispatchers.Main) {
-                        myCallback.invoke(null, "Twom Error SocketTimeoutException -${se}")
+                        myCallback.invoke(
+                            null,
+                            "${stringBuilder}\n${httpURlConnection?.responseCode} \n${httpURlConnection?.responseMessage}\n${se}"
+                        )
                     }
 
                 } catch (e: IOException) {
+                    val `in` = InputStreamReader(httpURlConnection?.errorStream)
+                    var stringBuilder = StringBuilder()
+                    val bufferedReader = BufferedReader(`in`)
+                    if (bufferedReader != null) {
+                        var cp: Int
+                        while (bufferedReader.read().also { cp = it } != -1) {
+                            stringBuilder.append(cp.toChar())
+                        }
+                        bufferedReader.close()
+                    }
+                    `in`.close()
                     GlobalScope.launch(Dispatchers.Main) {
-                        myCallback.invoke(null, "Twom Error IOException -${e}")
+                        myCallback.invoke(
+                            null,
+                            "${stringBuilder}\n${httpURlConnection?.responseCode} \n${httpURlConnection?.responseMessage}\n Error IOException -${e}"
+                        )
                     }
 
                 } catch (e: java.lang.Exception) {
+                    val `in` = InputStreamReader(httpURlConnection?.errorStream)
+                    var stringBuilder = StringBuilder()
+                    val bufferedReader = BufferedReader(`in`)
+                    if (bufferedReader != null) {
+                        var cp: Int
+                        while (bufferedReader.read().also { cp = it } != -1) {
+                            stringBuilder.append(cp.toChar())
+                        }
+                        bufferedReader.close()
+                    }
+                    `in`.close()
                     GlobalScope.launch(Dispatchers.Main) {
-                        myCallback.invoke(null, "Twom Error Exception -${e}")
+                        myCallback.invoke(
+                            null,
+                            "$stringBuilder\n${httpURlConnection?.responseCode} \n${httpURlConnection?.responseMessage} \n-${e}"
+                        )
                     }
 
                 } finally {
@@ -121,7 +188,6 @@ object TwoMonu {
 
 
     }
-
     object GetExecute {
         val url: String = urlmain!!
 
@@ -209,6 +275,108 @@ object TwoMonu {
             result.append(URLEncoder.encode(value.toString(), "UTF-8"))
         }
         return result.toString()
+    }
+
+   // @Throws(CustomException::class)
+    fun multipartRequest(
+        urlTo: String?,
+        parmas: Map<String, String?>,
+        filepath: String,
+        filefield: String,
+        fileMimeType: String
+    ): String? {
+        var connection: HttpURLConnection? = null
+        var outputStream: DataOutputStream? = null
+        var inputStream: InputStream? = null
+        val twoHyphens = "--"
+        val boundary = "*****" + java.lang.Long.toString(System.currentTimeMillis()) + "*****"
+        val lineEnd = "\r\n"
+        var result: String? = ""
+        var bytesRead: Int
+        var bytesAvailable: Int
+        var bufferSize: Int
+        val buffer: ByteArray
+        val maxBufferSize = 1 * 1024 * 1024
+        val q = filepath.split("/".toRegex()).toTypedArray()
+        val idx = q.size - 1
+        return try {
+            val file = File(filepath)
+            val fileInputStream = FileInputStream(file)
+            val url = URL(urlTo)
+            connection = url.openConnection() as HttpURLConnection
+            connection.doInput = true
+            connection.doOutput = true
+            connection.useCaches = false
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Connection", "Keep-Alive")
+            connection.setRequestProperty("User-Agent", "Android Multipart HTTP Client 1.0")
+            connection.setRequestProperty("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJvc2FtYW0uY29tIiwidWlkIjo0NSwidHlwZSI6Im1lcmNoYW50IiwiaWF0IjoxNjA5MjY3ODg0LCJleHAiOjE2NDAzNzE4ODR9.ndCh2dINiROKo0tcQQjSSLO-2V50LZhIH2J3Ac-FGhE")
+            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            outputStream = DataOutputStream(connection.outputStream)
+            outputStream.writeBytes(twoHyphens + boundary + lineEnd)
+            outputStream.writeBytes("Content-Disposition: form-data; name=\"" + filefield + "\"; filename=\"" + q[idx] + "\"" + lineEnd)
+            outputStream.writeBytes("Content-Type: $fileMimeType$lineEnd")
+            outputStream.writeBytes("Content-Transfer-Encoding: binary$lineEnd")
+            outputStream.writeBytes(lineEnd)
+            bytesAvailable = fileInputStream.available()
+            bufferSize = Math.min(bytesAvailable, maxBufferSize)
+            buffer = ByteArray(bufferSize)
+            bytesRead = fileInputStream.read(buffer, 0, bufferSize)
+            while (bytesRead > 0) {
+                outputStream.write(buffer, 0, bufferSize)
+                bytesAvailable = fileInputStream.available()
+                bufferSize = Math.min(bytesAvailable, maxBufferSize)
+                bytesRead = fileInputStream.read(buffer, 0, bufferSize)
+            }
+            outputStream.writeBytes(lineEnd)
+
+            // Upload POST Data
+            val keys = parmas.keys.iterator()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val value = parmas[key]
+                outputStream.writeBytes(twoHyphens + boundary + lineEnd)
+                outputStream.writeBytes("Content-Disposition: form-data; name=\"$key\"$lineEnd")
+                outputStream.writeBytes("Content-Type: text/plain$lineEnd")
+                outputStream.writeBytes(lineEnd)
+                outputStream.writeBytes(value)
+                outputStream.writeBytes(lineEnd)
+            }
+            outputStream.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd)
+            if (200 != connection.responseCode) {
+               // throw CustomException("Failed to upload code:" + connection.responseCode + " " + connection.responseMessage)
+            }
+            inputStream = connection.inputStream
+            result = convertStreamToString(inputStream)
+            fileInputStream.close()
+            inputStream.close()
+            outputStream.flush()
+            outputStream.close()
+            result
+        } catch ( e:Exception) {
+ throw (e)
+
+        }
+    }
+
+    private fun convertStreamToString(`is`: InputStream?): String? {
+        val reader = BufferedReader(InputStreamReader(`is`))
+        val sb = java.lang.StringBuilder()
+        var line: String? = null
+        try {
+            while (reader.readLine().also { line = it } != null) {
+                sb.append(line)
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+        } finally {
+            try {
+                `is`!!.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+        return sb.toString()
     }
 
 
